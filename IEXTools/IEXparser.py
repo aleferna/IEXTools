@@ -280,3 +280,30 @@ class Parser(object):
         self.messages_left -= 1
         self.message_type = self.read_chunk(1)[0]
         self.message_binary = self.read_chunk(message_len - 1)
+
+        
+        
+        
+## Patch parser to take on gzip files
+class ParserGz(Parser):
+    def _load(self, file_path: str) -> BinaryIO:
+        return gzip.open(file_path, 'rb')
+    def _get_session_id(self, file_path: str) -> bytes:
+        try:
+            return self.session_id
+        except AttributeError:
+            iex_header_start = (
+                self.version
+                + self.reserved
+                + self.protocol_id
+                + self.channel_id
+            )
+            with gzip.open(file_path, "rb") as market_file:
+                for line in market_file:
+                    if iex_header_start in line:
+                        line = line.split(iex_header_start)[1]
+                        return line[:4]
+        raise ProtocolException(
+            "Session ID could not be found in the supplied file"
+        )
+        
